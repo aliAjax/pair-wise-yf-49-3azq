@@ -1,12 +1,27 @@
 import { createApi, fakeBaseQuery } from "@reduxjs/toolkit/query/react";
-import type { Evidence } from "../types";
+import type { HydrationBlob } from "./courtSlice";
+
 const KEY = "pair-wise-yf-49/court";
+
 export const courtApi = createApi({
   reducerPath: "courtApi",
   baseQuery: fakeBaseQuery(),
   endpoints: (builder) => ({
-    getEvidence: builder.query<Evidence[], void>({ queryFn: async () => { const raw = localStorage.getItem(KEY); return { data: raw ? JSON.parse(raw).evidence : [] }; } }),
-    saveEvidence: builder.mutation<{ ok: true }, Evidence[]>({ queryFn: async (payload) => { const raw = localStorage.getItem(KEY); const current = raw ? JSON.parse(raw) : {}; localStorage.setItem(KEY, JSON.stringify({ ...current, evidence: payload })); return { data: { ok: true } }; } })
+    getCourtState: builder.query<HydrationBlob, void>({
+      queryFn: async () => {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return { data: {} };
+        const parsed = JSON.parse(raw) as HydrationBlob & { evidence?: unknown };
+        // 旧格式只有 evidence：缺设备和基线，交给 slice 升级补来源
+        return { data: { evidence: parsed.evidence as never, objections: parsed.objections, sync: parsed.sync } };
+      }
+    }),
+    saveCourtState: builder.mutation<{ ok: true }, HydrationBlob>({
+      queryFn: async (payload) => {
+        localStorage.setItem(KEY, JSON.stringify(payload));
+        return { data: { ok: true } };
+      }
+    })
   })
 });
-export const { useGetEvidenceQuery, useSaveEvidenceMutation } = courtApi;
+export const { useGetCourtStateQuery, useSaveCourtStateMutation } = courtApi;
